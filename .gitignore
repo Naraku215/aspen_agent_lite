@@ -1,0 +1,33 @@
+# Aspen 二进制产物：体积大、无法 diff，不进版本库
+*.apw
+*.bkp
+*.apwz
+*.rep
+*.his
+*.appdf
+*.def
+*.summary
+~*.*
+
+# Aspen 运行时残留
+*.ktp
+*.dfd
+*.dpi
+*.inm
+
+# Aspen 引擎伴生文件（sim/ 下 _ 开头运行时文件 + 摘要文件 + 备份）
+*.ads
+*.sum
+sim/_*
+$*
+
+# 临时诊断脚本（模型调试用，不入库）
+cases/*/*.py
+
+# 案例工作区产物不进 git（model_plan / state.json / sim 均为案例资产）
+cases/
+
+# IDE 配置
+.vscode/
+
+# 保留所有 .md / .json / .ps1 —— 方案、归因表、状态是本系统的真正资产
