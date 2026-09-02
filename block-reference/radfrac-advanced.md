@@ -138,7 +138,7 @@ set_value(session, aspen_path='\Data\Blocks\COL1\Input\PROD_PHASE\SIDEDRAW', val
 ### Gotchas
 
 - Mass balance constraint: Distillate + Side draw + Bottoms = Feed. If D + SD > Feed, you get `***SEVERE ERROR: COLUMN NOT IN MASS BALANCE`.
-- To move an existing bottoms/distillate stream to a side draw: `remove_stream` → `place_stream` → `connect_stream` to SP(OUT). See [streams.md](../streams.md#reconnecting-streams) for the reconnection workflow.
+- To move an existing bottoms/distillate stream to a side draw: `remove_stream` → `place_stream` → `connect_stream` to SP(OUT). See [streams.md](streams.md#reconnecting-streams) for the reconnection workflow.
 - Each SP(OUT) connection adds one side draw. Multiple side draws are supported.
 
 ## Block-Specific Advanced Inputs
