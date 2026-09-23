@@ -77,7 +77,9 @@
 - **单位换算注册表语义错**：`units.py` 假设 `node.UnitString` 是内部 SI，实际返回
   当前 Unit-Set 显示单位（ENG 集下温度节点返回 F）→ 带 unit 必报
   `No unit conversion registered for C -> F`。**已做**（3.2 文档版绕行：
-  METCBAR + 不带 unit 直传）；**遗留**（units.py 根修）。
+  METCBAR + 不带 unit 直传）；**根修完成**（5e8bef5：统一原生
+  SetValueAndUnit/ValueForUnit 读写，78/78 单测 + 15/15 真机三轮；agent 侧约定随之
+  改为带 unit 直传工程值，详见旧系统 `knowledge/reference/单位机制收敛改造.md`）。
 - `list_tear_streams` 偶发空返回；`save()` 往已存在路径可能挂起（skill 已知坑已有）。
 
 ---
@@ -94,7 +96,7 @@
 | 1.4 | new_simulation 失败时诚实报错，禁止 reinit 冒充新建 | 遗留 |
 | 1.5 | 通用建表行工具 add_table_row(path, label) | **已做** |
 | 1.5b | set_yield_table 专用工具 | 遗留（用户决策不做） |
-| 1.6 | units.py 根修（不依赖显示单位换算） | 遗留 |
+| 1.6 | units.py 根修（不依赖显示单位换算） | **已做**（5e8bef5，原生 API 统一读写） |
 
 ### PFD 侧（d:\Projects\aspen-agent）
 
@@ -148,3 +150,20 @@
   不调用任何 aspen-plus MCP 工具。subagent 通道不可用时按 BLOCKED/PAUSED 处置并告知用户。
 - runs/ 下案例产物不进 git。
 - 所有项目 Git 远程操作统一 SSH（本文件无关，仅为完整性记录）。
+
+## 五、709 轮更正（2026-09-23）
+
+（以下为本轮合并修补后的更正，保留上文历史正文；早期结论以当时覆盖范围为准。）
+
+- **字符串旁路 ≠ 全部块单位失效**：历史 COMP1 的 `value:"30", unit:"bar"` 写入是
+  字符串分支绕过单位处理（tools/blocks.py 对字符串直接 SetValue）；不能推广为
+  所有块节点的原生单位接口失效。
+- **MOLE-FLOW 不是全流股修复**：四种组成基准（MOLE-FRAC/MASS-FRAC/MOLE-FLOW/
+  MASS-FLOW）均为修复目标；组分流量求和只是 MOLE-FLOW 的一条路径，尚待原生验证，
+  不能以强制 MOLE-FLOW 代替根修。
+- **备份不是最终输入**：`.bkp` 里有 TOTAL=100 不证明计算输入含物理总量；
+  `_3053lva.inm` 的 MOLE-FRAC 无总量而 `.his` 报 NO TOTAL FLOW 才是输入翻译
+  拒绝证据；备份与运行的时间差不能定位失效环节。
+- **早期“根修完成”仅代表当时覆盖**：78/78 单测 + 15/15 真机记录只代表当时范围；
+  本轮离线回归（tests/unit 293 项 + standalone 82 项，无真实 COM）与真机持久化
+  证明是两回事，真机验收另行授权。

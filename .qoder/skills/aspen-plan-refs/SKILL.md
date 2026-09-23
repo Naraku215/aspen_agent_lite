@@ -65,9 +65,13 @@ Read `block-reference/<类型>.md`（总目录 `block-reference/index.md` 需要
 
 ## 6. 单位约定（model_plan 唯一写法）
 
-- 数值一律"工程值 + 单位"书写（150 C、10 bar、100 kmol/hr），**不写 SI 换算列**
-- engineer 用 METCBAR 单位制 + 数值直传（**不带 unit 参数**）；主 agent 与
-  model_plan 不做任何换算
-- 无量纲量标注"无量纲"；流股组成基准（MOLE-FRAC / MOLE-FLOW）必须写明
+- 数值一律“工程值 + 单位”书写（150 C、10 bar、100 kmol/hr），**不写 SI 换算列**
+- engineer 用 `configure_model(manifest)` 批配置提交：数值 spec 显式 unit（enum/text
+  不带 unit）；主 agent 与 model_plan 不做任何换算，不手工换算绕行
+- 无量纲量标注“无量纲”；进料组成**显式声明组成基准与总量基准**：分数基准
+  （MOLE-FRAC/MASS-FRAC）配显式正总流量，流量基准（MOLE-FLOW/MASS-FLOW）配组分
+  流量求和；不写“默认 MOLE-FLOW”这类隐含默认
 - 组分标签 > 8 字符会被截断，model_plan §2 给预期标签；杂质/惰性行必含
 - 压力剖面逐节点给（§6），防压力倒挂
+- §4 进料表补组成基准/总量基准两列；执行预算（首跑 1、TUNE 另授 ≤3、简单案例
+  deadline 300 秒）写进 model_plan §8，方便 engineer 与派发 prompt 追溯 manifest

@@ -44,40 +44,38 @@ engineer 是**唯一持 aspen-plus MCP 的角色**。
    类型现 Read `block-reference/<类型>.md`，**绝不预读**
 3. 用户确认 → 派 Aspen_Simulation_Engineer：prompt 写 case 目录**绝对路径**、
    apw 约定 `sim\model.apw`、model_plan.md 位置（engineer 零上下文继承，
-   一次性把"用户已确认 model_plan、按四阶段搭到 MODEL_READY"写清楚）
+   一次性把"用户已确认 model_plan、按四阶段搭到 TOPOLOGY_READY、全程写 trace.md"
+   写清楚）
 4. 按 engineer 返回状态分流：
 
-### MODEL_READY（relayout 交接门，engineer 已 save+close_file 文件无占用）
+### TOPOLOGY_READY（BUILD 过关，主 agent 立即排布不等用户）
 
-1. 块数 <5 → 自动 SKIP（脚本内建，输出 `SKIP:`），直接续派 RUN
-2. 备份：`Copy-Item sim\model.bkp sim\model.bkp.pre-relayout -Force`
-   （每次覆盖备份）
-3. 排布：`scripts/relayout-pfd.ps1 -BkpPath sim\model.bkp -DrawStreams
-   -OutPath sim\model-relayout.tmp.bkp`（离线重写图形段，不碰模型数据）
-4. 脚本报错 / 输出含 SKIP → 不覆盖，排布非阻塞，直接续派
-5. 成功 → `Move-Item sim\model-relayout.tmp.bkp sim\model.bkp -Force` 原位覆盖 →
-   **删除旧 `sim\model.apw`**（已过期；防止后续 save 走 SaveAs 弹覆盖对话框挂起）
-6. 续派 engineer 继续 RUN（prompt 写明"排布已完成，首动作 open_file(model.bkp) +
-   status() 加载验证"）：
-   - 验证通过 → 从 RUN 继续，最终 save(`sim\model.apw`) 全新落盘
-     （含排布图形，无覆盖风险）
-   - 验证失败 → engineer 记 last_error 返回 BLOCKED；主 agent 还原
-     `Copy-Item pre-relayout → model.bkp -Force`，续派 engineer 打开还原后的 bkp
-     继续 RUN（本次排布作废，非阻塞）
+1. 排布：`scripts/relayout-pfd.ps1 -BkpPath sim\model.bkp -MinBlocks 1 -DrawStreams
+   -OutPath sim\checkpoints\002-relayout.bkp`（离线重写图形段，不碰模型数据；
+   唯一输出路径）。脚本默认不改；**SKIP 或空产物不算成功**，必须核实实际产物
+   与真实重排块数
+2. 脚本报错 / SKIP / 产物异常 → 不覆盖、不删除，排布非阻塞，记下原因直接续派
+   （可视化与完整流程性能不得判通过）
+3. 排布成功 → 保留 001-topology 与最终 model.bkp 原文件；排布产物单独存放，
+   **不覆盖原 bkp、不删除旧 apw**
+4. 续派 engineer（prompt 写明"排布已完成或已跳过、打开对应文件后从 CONFIGURE
+   一趟做到 CONVERGED；全程继续写 trace.md"）：
+   - 验证通过 → 从 CONFIGURE 继续，CONFIGURE→RUN 一趟做完
+   - 打开/验证失败 → engineer 记 last_error 返回 BLOCKED；主 agent 续派 engineer
+     打开排布前的 model.bkp 从 CONFIGURE 继续（本次排布作废，非阻塞）
+
+主 agent 只编排离线排布；Aspen 的加载与保存一律由 engineer 完成。checkpoint
+manifest（实际路径、父版本、阶段、哈希、验证状态）由服务端 ledger 维护，
+lite state 只存引用与摘要。
 
 ### 其他状态
 
 - `CONVERGED` → 简报 state.json 的 results_summary（关键流股/模块结果），用户验收
-- `PAUSED` → 复述做到哪/卡在哪/已试/建议；用户检修后续跑（prompt 强调"续跑"二字，
-  engineer 按 state.json 断点继续）或指示 TUNE
+- `PAUSED` / `BLOCKED` → **先 Read `<case>/trace.md` 复原过程再向用户复述**——
+  做到哪、卡在哪、已试什么（trace 为准，不猜）；用户指示检修后/TUNE 续跑
 - `NEEDS_INPUT` → 拿缺口清单问用户，带答复重派 engineer 补齐继续
-- `BLOCKED` → 说明情况商量对策
 
-返回状态枚举：
-
-```
-engineer: MODEL_READY | CONVERGED | PAUSED | NEEDS_INPUT | BLOCKED
-```
+engineer 返回状态枚举：`TOPOLOGY_READY | CONVERGED | PAUSED | NEEDS_INPUT | BLOCKED`
 
 ## 硬约束
 
@@ -89,11 +87,18 @@ engineer: MODEL_READY | CONVERGED | PAUSED | NEEDS_INPUT | BLOCKED
 
 ## 性能原则
 
-- **单次派发完成最多工作**：engineer 一次派发从 SETUP 做到 MODEL_READY，
-  续派一次到 CONVERGED，全程只重开 1 次文件
+- **两次派发完成一个案例、目标 300 秒内搭好**：第 1 次 SETUP→BUILD（TOPOLOGY_READY，
+  多为并行调用）；排布后第 2 次 CONFIGURE→RUN 一趟到底；全程只重开 1 次文件。
+  deadline 由主协调首次派发前启动，跨两次派发、排布与服务不重置（简单案例 300 秒；
+  复杂案例在确认方案中另定预算，不套用简单案例性能承诺）
 - **MCP 按依赖参照表并行**（aspen-build-refs §4）：add_component / add_block /
-  add_stream / connect × N 并行；CONFIGURE 每块串行（正确性优先）
+  add_stream / connect × N 并行；CONFIGURE 用 configure_model(manifest) 批配置
+  并核对服务端 receipt，已确认对象不重复逐项读取
 - batch_refresh 全程 off 至 RUN（批量操作省 30–60% 时间）
+- **RUN 预算**（服务端 execution ledger 强制，agent 不能通过请求自增）：首跑 1 次，
+  接口/输入错误或不收敛即停，无自动补输入第二跑；TUNE 由用户另行授权、累计 ≤3、
+  总原生提交 ≤4；结果查询无固定上限：一次聚合快照 + 必要时一次针对性诊断 +
+  截止时间内每秒轻量轮询。预检拒绝不扣原生 RUN 额度
 - **渐进披露**：skill 按角色触发即载；block-reference 71 篇按 model_plan 出现的
   类型现 Read，**绝不预读**
 
@@ -105,7 +110,11 @@ engineer: MODEL_READY | CONVERGED | PAUSED | NEEDS_INPUT | BLOCKED
 cases/<YYYYMMDD-名称>/
 ├── model_plan.md   建模方案（主 agent 起草，用户逐节确认）
 ├── state.json      engineer 状态机进度（续跑用）
+├── trace.md        engineer 全程留痕（每次派发续写：调用/返回/决策，复盘用）
 └── sim/            model.apw / model.bkp + Aspen 伴生文件
+    │                checkpoints/ 001-topology.apw/.bkp、002-relayout.bkp、
+    │                003-configured.apw/.bkp（后续序号由服务端 ledger 全局递增，
+    │                旧 checkpoint 不覆盖、不删除）
 ```
 
 ---
@@ -120,7 +129,7 @@ block-reference/      单元模块建模手册（71 篇 + index.md + streams.md�
 notes/                复盘与经验笔记（system-fixes.md、examples-catalog.md 等）
 templates/            model_plan 模板（new-case.ps1 复制进 case）
 scripts/new-case.ps1       新建案例工作目录
-scripts/relayout-pfd.ps1   PFD 排布（MODEL_READY 后离线覆盖 model.bkp）
+scripts/relayout-pfd.ps1   PFD 排布（TOPOLOGY_READY 后离线覆盖 model.bkp）
 scripts/show-aspen-window.ps1  恢复 Aspen 窗口（MCP 拉起默认隐藏）
 cases/                案例工作区（不进 git）
 ```
