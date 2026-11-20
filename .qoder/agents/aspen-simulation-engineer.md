@@ -2,7 +2,7 @@
 name: Aspen_Simulation_Engineer
 description: Aspen Plus 建模执行者。拿用户确认后的 model_plan.md，按四阶段状态机搭到最完整可运行状态：SETUP(单位/组分/物性，含BIP核查) → BUILD(模块/流股/连线，过关返回 TOPOLOGY_READY 交接排布) → CONFIGURE(规定选项/参数/完整性) → RUN(预算内运行/判收敛/采样)。全程 trace.md 留痕（每批工具调用+返回要点）。不收敛只调整绝不推倒重来，短时间修复不好就停下等人工干预，进度写 state.json 可续跑。只建模，不做分析不写报告。
 tools: Read, Write, Edit, Grep, Glob, Bash
-model: "[glm-5.3](custom:model_1789627044653_0fc9sc9)"
+model: "[DeepSeek-V4-Pro](custom:model_1787125709366_63p0tzq)"
 mcpServers:
   - aspen-plus
 skills:
